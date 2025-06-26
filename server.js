@@ -1,22 +1,18 @@
 require('dotenv').config();
-const express = require('express');
 const mongoose = require('mongoose');
+const express = require('express'); // Include the express module
 const cookieParser = require('cookie-parser');
-const cors = require('cors');
 const authRoutes = require('./src/routes/authRoutes');
+const linksRoutes = require('./src/routes/linksRoutes');
+const cors = require('cors');
 
-const app = express();
-
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB Connected'))
-    .catch(error => console.log('❌ MongoDB connection error:', error));
+    .catch((error) => console.log(error));
 
-// Middlewares
-app.use(express.json());
+const app = express(); // Instantiate express app.
+
+app.use(express.json()); // Middleware to convert json to javascript object.
 app.use(cookieParser());
 
 const corsOptions = {
@@ -24,15 +20,14 @@ const corsOptions = {
     credentials: true
 };
 app.use(cors(corsOptions));
-
-// Routes
 app.use('/auth', authRoutes);
+app.use('/links', linksRoutes);
 
-// Server start
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, (err) => {
-    if (err) {
-        console.log("Error in starting server", err);
+const PORT = 5001;
+app.listen(5001, (error) => {
+    if (error) {
+        console.log('Error starting the server: ', error);
+    } else {
+        console.log(`Server is running at http://localhost:${PORT}`);
     }
-    console.log(`Server is running on port ${PORT}`);
 });
