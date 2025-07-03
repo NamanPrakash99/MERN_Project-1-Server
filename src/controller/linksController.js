@@ -1,10 +1,22 @@
 const Links = require("../model/Links");
+const Users = require("../model/Users");
 
 const linksController = {
     create: async (request, response) => {
         const { campaign_title, original_url, category } = request.body;
 
         try {
+            // we're fetching user details form DB even though we have
+            // it is available in request object. The reason is critical operations
+            // we're dealing with money and we want to pull latest information
+            // whenever we are transacting
+            await Users.findById({ _id: request.user.id });
+            if (user.credits < 1) {
+                return response.status(400).json({
+                    message: 'Insufficient credit balance'
+                });
+            }
+
             const link = new Links({
                 campaignTitle: campaign_title,
                 originalUrl: original_url,
@@ -12,7 +24,10 @@ const linksController = {
                 user: request.user.role === 'admin' ?
                     request.user.id : request.user.adminId
             });
-            link.save();
+            await link.save();
+
+            user.credits -= 1;
+            await user.save();
             response.json({
                 data: { linkId: link._id }
             });

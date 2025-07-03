@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { type } = require('os');
 
 const UsersSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
@@ -7,7 +8,8 @@ const UsersSchema = new mongoose.Schema({
     isGoogleUser: { type: String, required: false },
     googleId: { type: String, required: false },
     role: { type: String, default: 'admin' },
-    adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', index: true }
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', index: true },
+    credits: { type: Number, default: 0 },
 });
 
 module.exports = mongoose.model('users', UsersSchema);

@@ -35,7 +35,8 @@ const authController = {
                 name: data.name,
                 email: data.email,
                 role: data.role ? data.role : 'admin',
-                adminId: data.adminId
+                adminId: data.adminId,
+                credits: data.credits
             };
 
             const token = jwt.sign(user, secret, { expiresIn: '1h' });
@@ -57,17 +58,18 @@ const authController = {
         response.json({ message: 'Logout successfull' });
     },
 
-    isUserLoggedIn: (request, response) => {
+    isUserLoggedIn: async (request, response) => {
         const token = request.cookies.jwtToken;
 
         if (!token) {
             return response.status(401).json({ message: 'Unauthorized access' });
         }
 
-        jwt.verify(token, secret, (error, user) => {
+        jwt.verify(token, secret, async (error, user) => {
             if (error) {
                 return response.status(401).json({ message: 'Unauthorized access' });
             } else {
+                const latestUserDetails = await Users.findById({ _id: user.id });
                 response.json({ message: 'User is logged in', user: user });
             }
         });
@@ -93,13 +95,15 @@ const authController = {
                 email: username,
                 password: encryptedPassword,
                 name: name,
-                role: data.role ? data.role : 'admin'
+                role: 'admin'
             });
             await user.save();
             const userDetails = {
                 id: user._id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                role: user.role,
+                credits: user.credits
             };
             const token = jwt.sign(userDetails, secret, { expiresIn: '1h' });
 
@@ -148,7 +152,8 @@ const authController = {
                 id: data._id ? data._id : googleId,
                 username: email,
                 name: name,
-                role: data.role ? data.role : 'admin' // This is the ensure backward compatibility
+                role: data.role ? data.role : 'admin', // This is the ensure backward compatibility
+                credits: data.credits
             };
 
             const token = jwt.sign(user, secret, { expiresIn: '1h' });
