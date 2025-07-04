@@ -6,11 +6,11 @@ const linksController = {
         const { campaign_title, original_url, category } = request.body;
 
         try {
-            // we're fetching user details form DB even though we have
-            // it is available in request object. The reason is critical operations
-            // we're dealing with money and we want to pull latest information
-            // whenever we are transacting
-            await Users.findById({ _id: request.user.id });
+            // We're fetching user details from DB even though we have
+            // it available in request object. The reason is critical operation.
+            // We're dealing with money and we want to pull latest information
+            // whenever we're transacting.
+            const user = await Users.findById({ _id: request.user.id });
             if (user.credits < 1) {
                 return response.status(400).json({
                     message: 'Insufficient credit balance'

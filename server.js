@@ -25,7 +25,7 @@ app.use(cors(corsOptions));
 app.use('/auth', authRoutes);
 app.use('/links', linksRoutes);
 app.use('/users', userRoutes);
-app.use('/payment', paymentRoutes);
+app.use('/payments', paymentRoutes);
 
 const PORT = 5001;
 app.listen(5001, (error) => {

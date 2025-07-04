@@ -70,7 +70,7 @@ const authController = {
                 return response.status(401).json({ message: 'Unauthorized access' });
             } else {
                 const latestUserDetails = await Users.findById({ _id: user.id });
-                response.json({ message: 'User is logged in', user: user });
+                response.json({ message: 'User is logged in', user: latestUserDetails });
             }
         });
     },

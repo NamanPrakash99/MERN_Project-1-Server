@@ -1,5 +1,5 @@
 const Razorpay = require('razorpay');
-const CREDIT_PACKS = require('../constants/paymentConstants');
+const CREDIT_PACKS = require("../constants/paymentConstants");
 const crypto = require('crypto');
 const Users = require('../model/Users');
 
@@ -9,7 +9,7 @@ const razorpay = new Razorpay({
 });
 
 const paymentController = {
-    // Step #1 and step #7 form the sequence-diagram of one-time payment workflow
+    // Step #1 from the sequence diagram of one-time payment workflow
     createOrder: async (request, response) => {
         try {
             const { credits } = request.body;
@@ -20,7 +20,7 @@ const paymentController = {
                 });
             }
 
-            const amount = CREDIT_PACKS[credits] * 100;     // Convert to paisa
+            const amount = CREDIT_PACKS[credits] * 100; // Convert to paisa
 
             const order = await razorpay.orders.create({
                 amount: amount,
@@ -32,14 +32,14 @@ const paymentController = {
                 order: order
             });
         } catch (error) {
-            console.error(error);
+            console.log(error);
             response.status(500).json({
                 message: 'Internal server error'
             });
         }
     },
 
-    // Step #7 form the sequence-diagram of one-time payment workflow
+    // Step #7 from the sequence diagram of one-time payment workflow
     verifyOrder: async (request, response) => {
         try {
             const {
@@ -49,13 +49,13 @@ const paymentController = {
 
             const body = razorpay_order_id + "|" + razorpay_payment_id;
             const expectedSignature = crypto
-                .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)    // Hash-based Message Authentication Code
+                .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)  //Hash-based Message Authentication Code
                 .update(body.toString())
                 .digest('hex');
 
             if (expectedSignature !== razorpay_signature) {
                 return response.status(400).json({
-                    message: 'Signature Verification Failed'
+                    message: 'Signature verification failed'
                 });
             }
 
@@ -65,7 +65,7 @@ const paymentController = {
 
             response.json({ user: user });
         } catch (error) {
-            console.error(error);
+            console.log(error);
             response.status(500).json({
                 message: 'Internal server error'
             });
