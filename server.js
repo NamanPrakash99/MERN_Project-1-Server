@@ -14,7 +14,14 @@ mongoose.connect(process.env.MONGO_URI)
 
 const app = express(); // Instantiate express app.
 
-app.use(express.json()); // Middleware to convert json to javascript object.
+app.use((request, response, next)=>{
+    
+    if(request.originalUrl.startsWith('/payments/webhook')){
+        next();
+    }
+    express.json()(request,response, next);
+});
+
 app.use(cookieParser());
 
 const corsOptions = {
