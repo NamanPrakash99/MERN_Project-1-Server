@@ -4,7 +4,6 @@ const axios = require('axios');
 const { getDeviceInfo } = require("../util/linkUtil");
 const Clicks = require("../model/Clicks");
 
-
 const linksController = {
     create: async (request, response) => {
         const { campaign_title, original_url, category } = request.body;
@@ -15,10 +14,13 @@ const linksController = {
             // We're dealing with money and we want to pull latest information
             // whenever we're transacting.
             const user = await Users.findById({ _id: request.user.id });
-            const hasActiveSubscription = user.subscription && user.subscription.status === 'active';
+
+            const hasActiveSubscription = user.subscription &&
+                user.subscription.status === 'active';
+
             if (!hasActiveSubscription && user.credits < 1) {
                 return response.status(400).json({
-                    messsage: 'Insufficient credit balance or no active subscription'
+                    message: 'Insufficient credit balance or no active subscription'
                 });
             }
 
@@ -31,8 +33,11 @@ const linksController = {
             });
             await link.save();
 
-            user.credits -= 1;
-            await user.save();
+            if (!hasActiveSubscription) {
+                user.credits -= 1;
+                await user.save();
+            }
+
             response.json({
                 data: { linkId: link._id }
             });
@@ -48,7 +53,6 @@ const linksController = {
         try {
             const userId = request.user.role === 'admin' ?
                 request.user.id : request.user.adminId;
-
             const links = await Links
                 .find({ user: userId })
                 .sort({ createdAt: -1 });
@@ -169,18 +173,17 @@ const linksController = {
     redirect: async (request, response) => {
         try {
             const linkId = request.params.id;
-            console.log(linkId);
             if (!linkId) {
                 return response.status(401)
                     .json({ error: 'Link ID is required' });
             }
 
-            let link = await Links.findById({ _id: linkId });
-            console.log(link);
+            let link = await Links.findById(linkId);
             if (!link) {
                 return response.status(404)
                     .json({ error: 'LinkID does not exist' });
             }
+
             const isDevelopment = process.env.NODE_ENV === 'development';
             const ipAddress = isDevelopment
                 ? '8.8.8.8'
@@ -188,8 +191,7 @@ const linksController = {
                 || request.socket.remoteAddress;
 
             const geoResponse = await axios.get(`http://ip-api.com/json/${ipAddress}`);
-
-            const { city, country, region, lat, lon, isp } = geoResponse.data;
+            const { city, country, region, lat, lon, isp  } = geoResponse.data;
 
             const userAgent = request.headers['user-agent'] || 'unknown';
             const { isMobile, browser } = getDeviceInfo(userAgent);
@@ -213,12 +215,8 @@ const linksController = {
                 clickedAt: new Date()
             });
 
-
-
             link.clickCount += 1;
-            // console.log(link);
             await link.save();
-
 
             response.redirect(link.originalUrl);
         } catch (error) {
@@ -228,6 +226,7 @@ const linksController = {
             });
         }
     },
+
     analytics: async (request, response) => {
         try {
             const { linkId, from, to } = request.query;
@@ -251,6 +250,7 @@ const linksController = {
             const query = {
                 linkId: linkId
             };
+
             if (from && to) {
                 query.clickedAt = { $gte: new Date(from), $lte: new Date(to) };
             }
@@ -258,15 +258,12 @@ const linksController = {
             const data = await Clicks.find(query).sort({ clickedAt: -1 });
             response.json(data);
         } catch (error) {
-
-
             console.log(error);
             return response.status(500).json({
                 message: 'Internal server error'
             });
         }
     },
-
 };
 
 module.exports = linksController;

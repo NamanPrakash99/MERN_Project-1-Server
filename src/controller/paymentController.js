@@ -70,12 +70,13 @@ const paymentController = {
             });
         }
     },
+
     createSubscription: async (request, response) => {
         try {
             const { plan_name } = request.body;
             if (!PLAN_IDS[plan_name]) {
                 return response.status(400).json({
-                    message: 'Invalid plan name' // ✅ fixed typo: Inavlid → Invalid
+                    message: 'Invalid plan name'
                 });
             }
 
@@ -85,11 +86,10 @@ const paymentController = {
                 customer_notify: 1,
                 total_count: plan.totalBillingCycleCount,
                 notes: {
-                    userID: request.user.id
+                    userId: request.user.id
                 }
             });
             response.json({ subscription: subscription });
-
         } catch (error) {
             console.log(error);
             response.status(500).json({
@@ -104,8 +104,8 @@ const paymentController = {
             const subscription = await razorpay.subscriptions.fetch(subscription_id);
             const user = await Users.findById({ _id: request.user.id });
 
-            // we will use this entry to prevent user from subscribing again
-            // from the UI, while we wait for activated event from razorpay
+            // We'll use this entry to prevent user from subscribing again
+            // from the UI, while we wait for activated event from razorpay.
             user.subscription = {
                 id: subscription_id,
                 planId: subscription.plan_id,
@@ -113,27 +113,6 @@ const paymentController = {
             };
             await user.save();
             response.json({ user: user });
-
-        } catch (error) {
-            console.log(error);
-            response.status(500).json({ // ✅ fixed typo: staus → status
-                message: 'Internal server error'
-            });
-        }
-    },
-
-    canclesubscriptionn: async (request, response) => { // ✅ left function name unchanged as you requested
-        try {
-            const { subscription_id } = request.body;
-            if (!subscription_id) {
-                return response.status(400).json({
-                    message: 'Subscription Id is mandatory'
-                });
-            }
-
-            const data = await razorpay.subscriptions.cancel(subscription_id);
-            response.json({ data: data });
-
         } catch (error) {
             console.log(error);
             response.status(500).json({
@@ -142,28 +121,49 @@ const paymentController = {
         }
     },
 
-    handleWebhookEvent: async (request, response) => { // ✅ fixed requesty → request
+    cancelSubscription: async (request, response) => {
+        try {
+            const { subscription_id } = request.body;
+
+            if (!subscription_id) {
+                return response.status(400).json({
+                    message: 'Subscription ID is mandatory'
+                });
+            }
+
+            const data = await razorpay.subscriptions.cancel(subscription_id);
+            response.json({ data: data });
+        } catch (error) {
+            console.log(error);
+            response.status(500).json({
+                message: 'Internal server error'
+            });
+        }
+    },
+
+    handleWebhookEvent: async (request, response) => {
         try {
             console.log('Received event');
-            const signature = request.headers['x-razorpay-signature']; // ✅ fixed missing "=" and header accessor
+            const signature = request.headers['x-razorpay-signature'];
             const body = request.body;
+
             const expectedSignature = crypto
-                .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET) // ✅ fixed process.nextTick → process.env
+                .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
                 .update(body)
                 .digest('hex');
 
             if (expectedSignature !== signature) {
-                console.log('Invalid signature')
+                console.log('Invalid signature');
                 return response.status(400).send('Invalid Signature');
             }
 
             const payload = JSON.parse(body);
-            console.log(JSON.stringify(payload, null, 2)); // ✅ fixed 0 → null for pretty print
+            console.log(JSON.stringify(payload, 0, 2));
+
             const event = payload.event;
             const subscriptionData = payload.payload.subscription.entity;
             const razorpaySubscriptionId = subscriptionData.id;
-            const userId = subscriptionData.notes ? subscriptionData.notes.userId : null; // ✅ fixed logic for userId
-
+            const userId = subscriptionData.notes?.userId;
             if (!userId) {
                 console.log('UserId not found in notes');
                 return response.status(400).send('UserId not found in notes');
@@ -174,7 +174,7 @@ const paymentController = {
                 case 'subscription.activated':
                     newStatus = 'active';
                     break;
-                case 'subscription.pendinng':
+                case 'subscription.pending':
                     newStatus = 'pending';
                     break;
                 case 'subscription.cancelled':
@@ -184,7 +184,7 @@ const paymentController = {
                     newStatus = 'completed';
                     break;
                 default:
-                    console.log('Unhandled event : ', event);
+                    console.log('Unhandled event: ', event);
                     return response.status(200).send('Unhandled event');
             }
 
@@ -192,45 +192,40 @@ const paymentController = {
                 { _id: userId },
                 {
                     $set: {
-                        'Subscription.id': razorpaySubscriptionId,
-                        'Subscription.planId': subscriptionData.plan_id,
-                        'Subscription.status': newStatus,
-                        'Subscription:start': subscriptionData.start_at
+                        'subscription.id': razorpaySubscriptionId,
+                        'subscription.status': newStatus,
+                        'subscription.planId': subscriptionData.plan_id,
+                        'subscription.start': subscriptionData.start_at
                             ? new Date(subscriptionData.start_at * 1000)
                             : null,
-                        'Subscription:end': subscriptionData.end_at
+                        'subscription.end': subscriptionData.end_at
                             ? new Date(subscriptionData.end_at * 1000)
                             : null,
-                        'Subscription:lastBillDate': subscriptionData.current_start
+                        'subscription.lastBillDate': subscriptionData.current_start
                             ? new Date(subscriptionData.current_start * 1000)
                             : null,
-                        'Subscription:BillnextDate': subscriptionData.current_end
+                        'subscription.nextBillDate': subscriptionData.current_end
                             ? new Date(subscriptionData.current_end * 1000)
                             : null,
-                        'subscription:paymentsMade': subscriptionData.paid_count,
-                        'subscription:paymentsRemaining': subscriptionData.remaining_count,
-
+                        'subscription.paymentsMade': subscriptionData.paid_count,
+                        'subscription.paymentsRemaining': subscriptionData.remaining_count,
                     }
                 },
                 { new: true }
             );
 
             if (!user) {
-                console.log('USer is not valid');
+                console.log('UserId is not valid');
                 return response.status(400).send('UserId is not valid');
             }
+
             console.log(`Updated subscription status for user ${userId} to ${newStatus}`);
-            return response.status(200).send(`Event processed for user:${userId}`);
-
-
+            return response.status(200).send('Event processed successfully');
         } catch (error) {
             console.log(error);
-            response.status(500).json({
-                message: 'Internal server error'
-            });
+            return response.status(500).send('Internal server error');
         }
-    }
-
+    },
 };
 
 module.exports = paymentController;

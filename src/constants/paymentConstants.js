@@ -15,6 +15,7 @@ const PLAN_IDS = {
         id: process.env.RAZORPAY_MONTHLY_PLAN_ID,
         planName: 'Unlimited Monthly',
         totalBillingCycleCount: 12
-    }
-}
+    },
+};
+
 module.exports = { CREDIT_PACKS, PLAN_IDS };
