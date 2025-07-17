@@ -4,6 +4,7 @@ const Users = require('../model/Users');
 const { OAuth2Client } = require('google-auth-library');
 const { validationResult } = require('express-validator');
 const { attemptToRefreshToken}=require('../util/authUtil');
+const sendMail = require('../service/emailService');
 
 // https://www.uuidgenerator.net/
 const secret = process.env.JWT_SECRET;
@@ -201,6 +202,60 @@ const authController = {
                 path: '/'
             });
             response.json({ user: user, message: 'User authenticated' });
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({ message: 'Internal server error' });
+        }
+    },
+
+    sendResetPasswordToken: async (request, response) => {
+        try {
+            const { email } = request.body;
+            if (!email) {
+                return response.status(400).json({ message: 'Email is required' });
+            }
+            const user = await Users.findOne({ email });
+            if (!user) {
+                return response.status(404).json({ message: 'User not found' });
+            }
+            // Generate 6-digit code
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
+            user.resetPasswordCode = code;
+            user.resetPasswordExpiry = expiry;
+            await user.save();
+            // Send code via email
+            await sendMail(email, 'Your Password Reset Code', `Your password reset code is: ${code}`);
+            return response.json({ message: 'Reset code sent to email' });
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({ message: 'Internal server error' });
+        }
+    },
+
+    resetPassword: async (request, response) => {
+        try {
+            const { email, code, newPassword } = request.body;
+            if (!email || !code || !newPassword) {
+                return response.status(400).json({ message: 'Email, code, and new password are required' });
+            }
+            const user = await Users.findOne({ email });
+            if (!user || !user.resetPasswordCode || !user.resetPasswordExpiry) {
+                return response.status(400).json({ message: 'Invalid or expired code' });
+            }
+            if (user.resetPasswordCode !== code) {
+                return response.status(400).json({ message: 'Invalid code' });
+            }
+            if (user.resetPasswordExpiry < new Date()) {
+                return response.status(400).json({ message: 'Code has expired' });
+            }
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            user.password = hashedPassword;
+            user.resetPasswordCode = undefined;
+            user.resetPasswordExpiry = undefined;
+            await user.save();
+            return response.json({ message: 'Password reset successful' });
         } catch (error) {
             console.log(error);
             return response.status(500).json({ message: 'Internal server error' });
